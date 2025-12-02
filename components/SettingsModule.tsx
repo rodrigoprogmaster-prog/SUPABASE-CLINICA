@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { View, ConsultationType, Patient, Appointment, SessionNote, InternalObservation, Transaction, AuditLogEntry } from '../types';
 import ModuleContainer from './ModuleContainer';
@@ -42,10 +41,8 @@ interface SettingsModuleProps {
   setSignatureImage?: (img: string | null) => void;
 
   onShowToast: (message: string, type: 'success' | 'error' | 'info') => void;
-  onboardingMode?: boolean;
   isMasterAccess?: boolean;
   onModalStateChange?: (isOpen: boolean) => void;
-  onCompleteOnboarding?: () => void;
 }
 
 const ChevronDownIcon = () => (
@@ -90,10 +87,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   setSignatureImage,
 
   onShowToast,
-  onboardingMode = false,
   isMasterAccess = false,
   onModalStateChange,
-  onCompleteOnboarding
 }) => {
   const [settingsTab, setSettingsTab] = useState<'profile' | 'security' | 'services' | 'data' | 'docs' | 'audit'>('profile');
   
@@ -125,13 +120,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const MASTER_PASSWORD = '140552';
   const DEFAULT_PASSWORD = '2577';
 
-  // Force reset tab on mode change
-  useEffect(() => {
-    if (onboardingMode) {
-        setSettingsTab('profile');
-    }
-  }, [onboardingMode]);
-
   const hasOpenModal = isBackupModalOpen || isRestoreModalOpen;
   useEffect(() => {
     if (onModalStateChange) {
@@ -145,7 +133,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const handlePasswordChange = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (oldPassword !== currentPassword && oldPassword !== MASTER_PASSWORD && !onboardingMode) {
+    // The user changing password from DEFAULT_PASSWORD is not an "onboarding mode"
+    // that forces logout, it's just a regular password change now.
+    if (oldPassword !== currentPassword && oldPassword !== MASTER_PASSWORD) {
       onShowToast('A senha antiga está incorreta.', 'error');
       return;
     }
@@ -159,39 +149,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     }
 
     onChangePassword(newPassword);
-    
-    if (oldPassword === DEFAULT_PASSWORD) {
-        onShowToast('Senha padrão alterada. Por favor, faça login com a nova senha.', 'success');
-        if (onCompleteOnboarding) {
-            setTimeout(() => {
-                onCompleteOnboarding();
-            }, 1500);
-        }
-    } else {
-        onShowToast('Senha alterada com sucesso!', 'success');
-        setOldPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-    }
-  };
-
-  const handleFinishOnboarding = () => {
-      const isPasswordChanged = currentPassword !== DEFAULT_PASSWORD;
-      const isProfileSet = !!profileImage;
-
-      if (!isPasswordChanged) {
-          onShowToast('É obrigatório alterar a senha padrão para continuar.', 'error');
-          return;
-      }
-
-      if (!isProfileSet) {
-          onShowToast('É obrigatório definir uma foto de perfil.', 'error');
-          return;
-      }
-
-      if (onCompleteOnboarding) {
-          onCompleteOnboarding();
-      }
+    onShowToast('Senha alterada com sucesso!', 'success');
+    setOldPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
   };
 
   const handleAddConsultationType = async (e: React.FormEvent) => {
@@ -439,7 +400,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
   return (
     <ModuleContainer 
-        title={onboardingMode ? "Configuração Inicial" : "Configurações do Sistema"} 
+        title={"Configurações do Sistema"} 
         onBack={() => onNavigate('dashboard')}
     >
       {/* ... Modals (Backup/Restore) ... */}
@@ -480,7 +441,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
          <div className="space-y-6">
             {/* Tabs */}
             <div className="flex border-b border-slate-200 mb-6 overflow-x-auto">
-                {['profile', 'security', !onboardingMode && 'services', !onboardingMode && 'data', !onboardingMode && 'docs', isMasterAccess && !onboardingMode && 'audit'].filter(Boolean).map(tab => (
+                {['profile', 'security', 'services', 'data', 'docs', isMasterAccess && 'audit'].filter(Boolean).map(tab => (
                     <button 
                         key={tab as string}
                         onClick={() => setSettingsTab(tab as any)}
@@ -535,18 +496,16 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-fade-in">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4">Alterar Senha</h3>
                     <form onSubmit={handlePasswordChange} className="space-y-5">
-                        {!onboardingMode && (
-                            <div>
-                                <label htmlFor="old-password" className="block text-sm font-medium text-slate-700 mb-1">Senha Antiga</label>
-                                <input
-                                    type="password"
-                                    id="old-password"
-                                    value={oldPassword}
-                                    onChange={(e) => setOldPassword(e.target.value)}
-                                    className={inputClass}
-                                />
-                            </div>
-                        )}
+                        <div>
+                            <label htmlFor="old-password" className="block text-sm font-medium text-slate-700 mb-1">Senha Antiga</label>
+                            <input
+                                type="password"
+                                id="old-password"
+                                value={oldPassword}
+                                onChange={(e) => setOldPassword(e.target.value)}
+                                className={inputClass}
+                            />
+                        </div>
                         <div>
                             <label htmlFor="new-password" className="block text-sm font-medium text-slate-700 mb-1">Nova Senha</label>
                             <input
@@ -568,22 +527,16 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                             />
                         </div>
                         <div className="flex justify-end pt-4 border-t border-slate-100">
-                            {onboardingMode ? (
-                                <button type="submit" className="px-6 py-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm font-medium">
-                                    Salvar Senha
-                                </button>
-                            ) : (
-                                <button type="submit" className="px-6 py-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm font-medium">
-                                    Alterar Senha
-                                </button>
-                            )}
+                            <button type="submit" className="px-6 py-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm font-medium">
+                                Alterar Senha
+                            </button>
                         </div>
                     </form>
                 </div>
             )}
             
             {/* Services Tab */}
-            {settingsTab === 'services' && !onboardingMode && (
+            {settingsTab === 'services' && (
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-fade-in">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4">Gerenciar Tipos de Consulta</h3>
                     <p className="text-slate-600 mb-6">Adicione, edite ou remova os tipos de consulta oferecidos e seus respectivos valores.</p>
@@ -720,7 +673,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             )}
 
             {/* Data Tab */}
-            {settingsTab === 'data' && !onboardingMode && (
+            {settingsTab === 'data' && (
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-fade-in">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4">Gerenciador de Dados</h3>
                     <p className="text-slate-600 mb-6">Mantenha seus dados seguros com backups e restaurações. Você também pode carregar dados de teste.</p>
@@ -761,24 +714,26 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </div>
 
                     {/* Load Mock Data */}
-                    <div className="mt-8 border-t border-slate-100 pt-6">
-                        <h4 className="font-semibold text-slate-700 mb-3">Dados de Teste</h4>
-                        <p className="text-sm text-slate-600 mb-4">
-                            Carregue um conjunto de dados de exemplo para testar as funcionalidades do sistema. 
-                            <span className="font-bold text-rose-600"> Esta ação irá misturar com dados existentes e não é recomendada em uso normal.</span>
-                        </p>
-                        <button 
-                            onClick={handleLoadMockData}
-                            className="px-6 py-2.5 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors font-medium"
-                        >
-                            Carregar Dados de Teste
-                        </button>
-                    </div>
+                    {isMasterAccess && (
+                        <div className="mt-8 border-t border-slate-100 pt-6">
+                            <h4 className="font-semibold text-slate-700 mb-3">Dados de Teste</h4>
+                            <p className="text-sm text-slate-600 mb-4">
+                                Carregue um conjunto de dados de exemplo para testar as funcionalidades do sistema. 
+                                <span className="font-bold text-rose-600"> Esta ação irá misturar com dados existentes e não é recomendada em uso normal.</span>
+                            </p>
+                            <button 
+                                onClick={handleLoadMockData}
+                                className="px-6 py-2.5 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors font-medium"
+                            >
+                                Carregar Dados de Teste
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
             {/* Documentation Tab */}
-            {settingsTab === 'docs' && !onboardingMode && (
+            {settingsTab === 'docs' && (
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-fade-in">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4">Documentação</h3>
                     <div className="text-slate-600 space-y-4">
@@ -800,7 +755,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             )}
 
             {/* Audit Log Tab (Master Access Only) */}
-            {settingsTab === 'audit' && isMasterAccess && !onboardingMode && setAuditLogs && (
+            {settingsTab === 'audit' && isMasterAccess && setAuditLogs && (
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-fade-in">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4">Logs de Auditoria</h3>
                     <p className="text-slate-600 mb-6">Registre e visualize todas as ações importantes realizadas no sistema.</p>
@@ -857,17 +812,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                             </tbody>
                         </table>
                     </div>
-                </div>
-            )}
-
-            {onboardingMode && (
-                <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
-                    <button 
-                        onClick={handleFinishOnboarding}
-                        className="px-8 py-3 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-colors shadow-lg"
-                    >
-                        Concluir Configuração
-                    </button>
                 </div>
             )}
         </div>

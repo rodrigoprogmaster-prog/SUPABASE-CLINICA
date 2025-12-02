@@ -1,4 +1,3 @@
-
 import React from 'react';
 import SettingsIcon from './icons/SettingsIcon';
 import UserIcon from './icons/UserIcon';
@@ -6,14 +5,13 @@ import UserIcon from './icons/UserIcon';
 interface WelcomeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onGoToSettings: () => void;
   pendingTasks: {
     passwordChanged: boolean;
     profileImageSet: boolean;
   };
 }
 
-const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, onGoToSettings, pendingTasks }) => {
+const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, pendingTasks }) => {
   if (!isOpen) return null;
 
   return (
@@ -43,7 +41,7 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, onGoToSett
         {/* Body */}
         <div className="p-8">
             <p className="text-slate-600 mb-6 text-center leading-relaxed">
-                Para finalizar a configuração da sua conta e garantir a segurança dos dados dos seus pacientes, <span className="font-bold text-indigo-600">é obrigatório</span> que você realize as seguintes ações:
+                Para aproveitar ao máximo o sistema e manter seus dados seguros, <span className="font-bold text-indigo-600">recomendamos</span> que você realize as seguintes ações:
             </p>
 
             <div className="space-y-4 mb-8">
@@ -83,11 +81,11 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, onGoToSett
             {/* Actions */}
             <div className="flex flex-col gap-3">
                 <button 
-                    onClick={onGoToSettings}
+                    onClick={onClose}
                     className="w-full py-3.5 rounded-full bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
                 >
                     <SettingsIcon />
-                    Configurar Agora
+                    Continuar para o Sistema
                 </button>
             </div>
         </div>

@@ -48,7 +48,6 @@ const App: React.FC = () => {
   
   const [isMasterAccessSession, setIsMasterAccessSession] = useState(false);
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
-  const [isOnboarding, setIsOnboarding] = useState(false);
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
   const [birthdayPatients, setBirthdayPatients] = useState<Patient[]>([]);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
@@ -206,7 +205,6 @@ const App: React.FC = () => {
     }
     if (view !== 'settings') {
         setIsSettingsUnlocked(false);
-        setIsOnboarding(false);
     }
     if (view !== 'financial') {
         setFinancialFilterPatient(null);
@@ -327,16 +325,9 @@ const App: React.FC = () => {
     }
   };
 
-  const handleWelcomeSetup = () => {
-      setIsWelcomeModalOpen(false);
-      setIsSettingsUnlocked(true); 
-      setIsOnboarding(true); 
-      navigateTo('settings');
-  };
-
   const handleCloseWelcome = () => {
       setIsWelcomeModalOpen(false);
-      runBirthdayCheck();
+      runBirthdayCheck(); // Proceed with other checks
   };
 
   const handleCloseBirthday = () => {
@@ -354,13 +345,6 @@ const App: React.FC = () => {
     setIsMasterAccessSession(false);
     setIsDataLoaded(false); // Reset load state
     addToast('Sessão encerrada com segurança.', 'info');
-  };
-
-  const handleOnboardingComplete = () => {
-      setIsAuthenticated(false);
-      setIsMasterAccessSession(false);
-      setIsOnboarding(false);
-      setIsSettingsUnlocked(false);
   };
 
   const handleMarkReminderSent = async (appointmentId: string) => {
@@ -497,10 +481,8 @@ const App: React.FC = () => {
                       await api.settings.set('signatureImage', img);
                   }}
                   onShowToast={addToast}
-                  onboardingMode={isOnboarding}
                   isMasterAccess={isMasterAccessSession}
                   onModalStateChange={handleChildModalStateChange}
-                  onCompleteOnboarding={handleOnboardingComplete}
                 />;
       case 'managementDashboard':
         return <ManagementDashboard onNavigate={navigateTo} patients={patients} appointments={appointments} transactions={transactions} />;
@@ -539,7 +521,6 @@ const App: React.FC = () => {
             <WelcomeModal 
                 isOpen={isWelcomeModalOpen}
                 onClose={handleCloseWelcome}
-                onGoToSettings={handleWelcomeSetup}
                 pendingTasks={{
                     passwordChanged: password !== '2577',
                     profileImageSet: !!profileImage
