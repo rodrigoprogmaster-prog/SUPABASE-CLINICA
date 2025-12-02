@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Appointment, Patient, ConsultationType, Transaction, NotificationLog } from '../types';
+import { View, Appointment, Patient, ConsultationType, Transaction, NotificationLog, BlockedDay } from '../types';
 import ModuleContainer from './ModuleContainer';
 import SendIcon from './icons/SendIcon';
 import Skeleton from './Skeleton';
@@ -25,6 +25,17 @@ const Tooltip: React.FC<{ text: string }> = ({ text }) => (
   </span>
 );
 
+const ChevronDownIcon = () => (
+  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-500 group-hover:text-indigo-600 transition-colors">
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  </div>
+);
+
+// Elegant UI Style
+const selectClass = "appearance-none w-full p-3 pr-10 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 font-medium transition-all focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none cursor-pointer hover:border-indigo-300 shadow-sm";
+
 interface AppointmentSchedulerProps {
     onNavigate: (view: View) => void;
     onViewPEP: (patientId: string, isConsultation?: boolean, showStartButton?: boolean) => void;
@@ -35,6 +46,9 @@ interface AppointmentSchedulerProps {
     setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
     notificationLogs: NotificationLog[];
     setNotificationLogs: React.Dispatch<React.SetStateAction<NotificationLog[]>>;
+    blockedDays: BlockedDay[];
+    onBlockDay: (date: string) => Promise<void>;
+    onUnblockDay: (date: string) => Promise<void>;
     onLogAction: (action: string, details: string) => void;
     onShowToast: (message: string, type: 'success' | 'error' | 'info') => void;
     onModalStateChange?: (isOpen: boolean) => void;
@@ -47,9 +61,12 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     appointments, 
     setAppointments, 
     consultationTypes, 
-    setTransactions,
+    setTransactions, 
     notificationLogs,
     setNotificationLogs,
+    blockedDays,
+    onBlockDay,
+    onUnblockDay,
     onLogAction,
     onShowToast,
     onModalStateChange
@@ -92,19 +109,20 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     } else {
         const patient = patients.find(p => p.id === appointmentData.patientId);
         const consultationType = consultationTypes.find(ct => ct.id === appointmentData.consultationTypeId);
-        if (!patient || !consultationType) {
-          setFormError('Paciente ou tipo de consulta inválido.');
-          return;
-        }
+        
+        // Provide safe defaults if fields are missing due to removed validation
+        const patientName = patient ? patient.name : 'Paciente Não Identificado';
+        const price = consultationType ? consultationType.price : 0;
+
         const appointment: Appointment = {
           id: `app${Date.now()}`,
           patientId: appointmentData.patientId,
-          patientName: patient.name,
-          date: appointmentData.date,
-          time: appointmentData.time,
+          patientName: patientName,
+          date: appointmentData.date || getTodayString(),
+          time: appointmentData.time || '00:00',
           status: 'scheduled',
           consultationTypeId: appointmentData.consultationTypeId,
-          price: consultationType.price,
+          price: price,
           reminderSent: false,
         };
         
@@ -344,6 +362,9 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
         formError={formError}
         setFormError={setFormError}
         appointmentToReschedule={reschedulingAppointment}
+        blockedDays={blockedDays}
+        onBlockDay={onBlockDay}
+        onUnblockDay={onUnblockDay}
       />
 
       {pendingRescheduleData && reschedulingAppointment && (
@@ -394,22 +415,25 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
               <label htmlFor="patientFilter" className="block text-sm font-medium text-slate-700 mb-1">
                   Filtrar por Paciente
               </label>
-              <select
-                  id="patientFilter"
-                  value={patientFilter}
-                  onChange={(e) => setPatientFilter(e.target.value)}
-                  className="w-full p-2 border rounded-md bg-slate-50 border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-              >
-                  <option value="">Mostrar Todos</option>
-                  {patients
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map(patient => (
-                          <option key={patient.id} value={patient.id}>
-                              {patient.name}
-                          </option>
-                      ))
-                  }
-              </select>
+              <div className="relative group">
+                  <select
+                      id="patientFilter"
+                      value={patientFilter}
+                      onChange={(e) => setPatientFilter(e.target.value)}
+                      className={selectClass}
+                  >
+                      <option value="">Mostrar Todos</option>
+                      {patients
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map(patient => (
+                              <option key={patient.id} value={patient.id}>
+                                  {patient.name}
+                              </option>
+                          ))
+                      }
+                  </select>
+                  <ChevronDownIcon />
+              </div>
           </div>
           {patientFilter && (
               <button

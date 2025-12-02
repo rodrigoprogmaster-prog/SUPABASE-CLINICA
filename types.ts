@@ -1,7 +1,7 @@
 
 export interface Anamnesis {
   // 1. Dados Pessoais
-  civilStatus: 'solteiro(a)' | 'casado(a)' | 'divorciado(a)' | 'viuvo(a)' | '';
+  civilStatus: 'solteiro(a)' | 'casado(a)' | 'divorciado(a)' | 'viuvo(a)' | 'namorando' | '';
   hasChildren: 'sim' | 'nao' | '';
   numberOfChildren: number | ''; // Conditional on hasChildren = 'sim'
   hadAbortion: 'sim' | 'nao' | '';
@@ -124,6 +124,12 @@ export interface Transaction {
   type: 'income' | 'expense';
   date: string;
   patientId?: string;
+}
+
+export interface BlockedDay {
+  id: string;
+  date: string;
+  reason?: string;
 }
 
 export interface NotificationLog {

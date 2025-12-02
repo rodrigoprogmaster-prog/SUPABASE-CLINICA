@@ -12,7 +12,6 @@ import CloseIcon from './icons/CloseIcon';
 import UserIcon from './icons/UserIcon';
 import CheckIcon from './icons/UserCheckIcon';
 import EditIcon from './icons/EditIcon';
-import BookIcon from './icons/BookIcon';
 import { api } from '../services/api';
 
 interface SettingsModuleProps {
@@ -37,10 +36,10 @@ interface SettingsModuleProps {
   setAuditLogs?: React.Dispatch<React.SetStateAction<AuditLogEntry[]>>;
 
   profileImage: string | null;
-  setProfileImage: (img: string | null) => void; // Changed signature to allow async
+  setProfileImage: (img: string | null) => void; 
   
   signatureImage?: string | null;
-  setSignatureImage?: (img: string | null) => void; // Changed signature to allow async
+  setSignatureImage?: (img: string | null) => void;
 
   onShowToast: (message: string, type: 'success' | 'error' | 'info') => void;
   onboardingMode?: boolean;
@@ -49,7 +48,21 @@ interface SettingsModuleProps {
   onCompleteOnboarding?: () => void;
 }
 
-const SettingsModule: React.FC<SettingsModuleProps> = ({ 
+const ChevronDownIcon = () => (
+  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-500 group-hover:text-indigo-600 transition-colors">
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  </div>
+);
+
+// Elegant UI Styles
+const inputClass = "w-full p-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 font-medium transition-all focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none placeholder-slate-400 hover:border-indigo-300 shadow-sm";
+const selectClass = "appearance-none w-full p-3 pr-10 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 font-medium transition-all focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none cursor-pointer hover:border-indigo-300 shadow-sm";
+
+
+// FIX: Export SettingsModule as a named export
+export const SettingsModule: React.FC<SettingsModuleProps> = ({ 
   onNavigate, 
   currentPassword,
   onChangePassword,
@@ -112,6 +125,7 @@ const SettingsModule: React.FC<SettingsModuleProps> = ({
   const MASTER_PASSWORD = '140552';
   const DEFAULT_PASSWORD = '2577';
 
+  // Force reset tab on mode change
   useEffect(() => {
     if (onboardingMode) {
         setSettingsTab('profile');
@@ -183,22 +197,14 @@ const SettingsModule: React.FC<SettingsModuleProps> = ({
   const handleAddConsultationType = async (e: React.FormEvent) => {
     e.preventDefault();
     const price = parseCurrency(newTypePrice);
-    const errors = { name: '', price: '' };
-    let isValid = true;
-
-    if (!newTypeName.trim()) { errors.name = 'O nome é obrigatório.'; isValid = false; }
-    if (isNaN(price) || price <= 0) { errors.price = 'Valor inválido.'; isValid = false; }
-    setTypeErrors(errors);
-
-    if (isValid) {
-      const newType: ConsultationType = { id: `ct-${Date.now()}`, name: newTypeName.trim(), price };
-      setConsultationTypes(prev => [...prev, newType].sort((a, b) => a.name.localeCompare(b.name)));
-      await api.consultationTypes.save(newType);
-      
-      setNewTypeName('');
-      setNewTypePrice('');
-      onShowToast('Tipo de consulta adicionado.', 'success');
-    }
+    // Removed validation checks
+    const newType: ConsultationType = { id: `ct-${Date.now()}`, name: newTypeName.trim() || 'Serviço sem nome', price };
+    setConsultationTypes(prev => [...prev, newType].sort((a, b) => a.name.localeCompare(b.name)));
+    await api.consultationTypes.save(newType);
+    
+    setNewTypeName('');
+    setNewTypePrice('');
+    onShowToast('Tipo de consulta adicionado.', 'success');
   };
 
   const handleDeleteConsultationType = async (id: string) => {
@@ -225,17 +231,9 @@ const SettingsModule: React.FC<SettingsModuleProps> = ({
 
   const handleSaveEdit = async (id: string) => {
       const price = parseCurrency(editTypePrice);
-      
-      if (!editTypeName.trim()) {
-          onShowToast('O nome do serviço não pode estar vazio.', 'error');
-          return;
-      }
-      if (isNaN(price) || price <= 0) {
-          onShowToast('O valor deve ser maior que zero.', 'error');
-          return;
-      }
+      // Removed validation checks
 
-      const updatedType = { id, name: editTypeName, price: price };
+      const updatedType = { id, name: editTypeName || 'Serviço sem nome', price: price };
       setConsultationTypes(prev => prev.map(ct => ct.id === id ? updatedType : ct));
       await api.consultationTypes.save(updatedType);
       
@@ -254,11 +252,6 @@ const SettingsModule: React.FC<SettingsModuleProps> = ({
   };
 
   const handleLoadMockData = () => {
-      // NOTE: Loading mock data into Supabase might clutter the DB. 
-      // Proceeding as requested by "Master Access" logic but warning user ideally.
-      // Here we just update local state for the session as per original logic, 
-      // but strictly we should probably UPSERT them. 
-      // For now, keeping original logic of "Session" unless explicitly asked to seed DB.
       setPatients(mockPatients);
       setAppointments(mockAppointments);
       setNotes(mockNotes);
@@ -402,12 +395,6 @@ const SettingsModule: React.FC<SettingsModuleProps> = ({
               const data = JSON.parse(content);
 
               if (data && typeof data === 'object') {
-                  // WARNING: Restore implies DB overwrite usually. 
-                  // For minimal implementation, update local state only? 
-                  // No, "Integrate Supabase" means we should upsert these to DB.
-                  // Just updating local state here for responsiveness, but strictly 
-                  // should iterate and save. 
-                  
                   if (data.patients) {
                       setPatients(data.patients);
                       for(const p of data.patients) await api.patients.save(p);
@@ -416,9 +403,7 @@ const SettingsModule: React.FC<SettingsModuleProps> = ({
                       setAppointments(data.appointments);
                       for(const a of data.appointments) await api.appointments.save(a);
                   }
-                  // ... repeat for other entities if full sync needed ...
                   
-                  // For brevity in UI updates:
                   if (data.notes) setNotes(data.notes);
                   if (data.observations) setObservations(data.observations);
                   if (data.transactions) setTransactions(data.transactions);
@@ -464,11 +449,11 @@ const SettingsModule: React.FC<SettingsModuleProps> = ({
                 <h3 className="text-lg font-bold mb-4">Backup</h3>
                 <p className="mb-4">Digite sua senha para confirmar o backup.</p>
                 <form onSubmit={confirmBackup}>
-                    <input type="password" value={backupPasswordInput} onChange={(e) => setBackupPasswordInput(e.target.value)} className="w-full p-2 border rounded" autoFocus />
+                    <input type="password" value={backupPasswordInput} onChange={(e) => setBackupPasswordInput(e.target.value)} className={inputClass} autoFocus />
                     {backupError && <p className="text-red-500 text-xs mt-1">{backupError}</p>}
                     <div className="flex justify-end gap-3 mt-4">
-                        <button type="button" onClick={() => setIsBackupModalOpen(false)} className="px-4 py-2 bg-slate-200 rounded">Cancelar</button>
-                        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded">Baixar</button>
+                        <button type="button" onClick={() => setIsBackupModalOpen(false)} className="px-4 py-2 bg-slate-200 rounded-full text-slate-700 hover:bg-slate-300 transition-colors">Cancelar</button>
+                        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors">Baixar</button>
                     </div>
                 </form>
             </div>
@@ -481,18 +466,18 @@ const SettingsModule: React.FC<SettingsModuleProps> = ({
                 <h3 className="text-lg font-bold mb-4 text-slate-800">Restaurar</h3>
                 <p className="mb-4 text-slate-600">Confirme a senha para restaurar o backup.</p>
                 <form onSubmit={confirmRestore}>
-                    <input type="password" value={restorePasswordInput} onChange={(e) => setRestorePasswordInput(e.target.value)} className="w-full p-2 border rounded" autoFocus />
+                    <input type="password" value={restorePasswordInput} onChange={(e) => setRestorePasswordInput(e.target.value)} className={inputClass} autoFocus />
                     {restoreError && <p className="text-red-500 text-xs mt-1">{restoreError}</p>}
                     <div className="flex justify-end gap-3 mt-4">
-                        <button type="button" onClick={() => setIsRestoreModalOpen(false)} className="px-4 py-2 bg-slate-200 rounded">Cancelar</button>
-                        <button type="submit" className="px-4 py-2 bg-amber-600 text-white rounded">Restaurar</button>
+                        <button type="button" onClick={() => setIsRestoreModalOpen(false)} className="px-4 py-2 bg-slate-200 rounded-full text-slate-700 hover:bg-slate-300 transition-colors">Cancelar</button>
+                        <button type="submit" className="px-4 py-2 bg-amber-600 text-white rounded-full hover:bg-amber-700 transition-colors">Restaurar</button>
                     </div>
                 </form>
             </div>
           </div>
       )}
 
-         <div className="animate-fade-in space-y-6">
+         <div className="space-y-6">
             {/* Tabs */}
             <div className="flex border-b border-slate-200 mb-6 overflow-x-auto">
                 {['profile', 'security', !onboardingMode && 'services', !onboardingMode && 'data', !onboardingMode && 'docs', isMasterAccess && !onboardingMode && 'audit'].filter(Boolean).map(tab => (
@@ -511,8 +496,12 @@ const SettingsModule: React.FC<SettingsModuleProps> = ({
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-fade-in">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4">Foto de Perfil</h3>
                     <div className="flex items-center gap-6">
-                        <div className="h-24 w-24 rounded-full bg-slate-100 border-2 border-slate-200 overflow-hidden relative">
-                            {profileImage ? <img src={profileImage} alt="Perfil" className="h-full w-full object-cover" /> : <UserIcon />}
+                        <div className="h-24 w-24 rounded-full bg-slate-100 border-2 border-slate-200 overflow-hidden relative flex items-center justify-center">
+                            {profileImage ? (
+                                <img src={profileImage} alt="Perfil" className="h-full w-full object-cover" />
+                            ) : (
+                                <UserIcon className="w-12 h-12 text-slate-300" />
+                            )}
                         </div>
                         <div>
                             <input type="file" id="profile-upload" accept="image/*" onChange={handleImageUpload} className="hidden" />
@@ -540,75 +529,348 @@ const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </div>
                 </div>
             )}
-
-            {/* Services Tab */}
-            {settingsTab === 'services' && !onboardingMode && (
+            
+            {/* Security Tab */}
+            {settingsTab === 'security' && (
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-fade-in">
-                    <h3 className="text-lg font-semibold text-slate-800 mb-4">Tipos de Consulta</h3>
-                    <div className="space-y-4 mb-6">
-                        {consultationTypes.map(ct => (
-                            <div key={ct.id} className="flex justify-between items-center p-3 bg-slate-50 rounded border border-slate-100">
-                                {editingTypeId === ct.id ? (
-                                    <div className="flex gap-2 w-full">
-                                        <input type="text" value={editTypeName} onChange={(e) => setEditTypeName(e.target.value)} className="p-1 border rounded flex-grow" />
-                                        <input type="text" value={editTypePrice} onChange={handleEditPriceChange} className="p-1 border rounded w-24" />
-                                        <button onClick={() => handleSaveEdit(ct.id)} className="text-green-600"><CheckIcon/></button>
-                                        <button onClick={handleCancelEdit} className="text-slate-500"><CloseIcon/></button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <span>{ct.name} - {ct.price.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</span>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => handleStartEdit(ct)} className="text-indigo-600"><EditIcon/></button>
-                                            <button onClick={() => handleDeleteConsultationType(ct.id)} className="text-rose-600"><TrashIcon/></button>
-                                        </div>
-                                    </>
-                                )}
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4">Alterar Senha</h3>
+                    <form onSubmit={handlePasswordChange} className="space-y-5">
+                        {!onboardingMode && (
+                            <div>
+                                <label htmlFor="old-password" className="block text-sm font-medium text-slate-700 mb-1">Senha Antiga</label>
+                                <input
+                                    type="password"
+                                    id="old-password"
+                                    value={oldPassword}
+                                    onChange={(e) => setOldPassword(e.target.value)}
+                                    className={inputClass}
+                                />
                             </div>
-                        ))}
-                    </div>
-                    <form onSubmit={handleAddConsultationType} className="flex gap-4 items-end bg-slate-50 p-4 rounded">
-                        <div className="flex-grow">
-                            <label className="block text-xs uppercase text-slate-500 font-bold mb-1">Nome</label>
-                            <input type="text" value={newTypeName} onChange={handleTypeNameChange} className="w-full p-2 border rounded" />
+                        )}
+                        <div>
+                            <label htmlFor="new-password" className="block text-sm font-medium text-slate-700 mb-1">Nova Senha</label>
+                            <input
+                                type="password"
+                                id="new-password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                className={inputClass}
+                            />
                         </div>
-                        <div className="w-32">
-                            <label className="block text-xs uppercase text-slate-500 font-bold mb-1">Preço</label>
-                            <input type="text" value={newTypePrice} onChange={handlePriceChange} className="w-full p-2 border rounded" placeholder="R$ 0,00" />
+                        <div>
+                            <label htmlFor="confirm-password" className="block text-sm font-medium text-slate-700 mb-1">Confirmar Nova Senha</label>
+                            <input
+                                type="password"
+                                id="confirm-password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className={inputClass}
+                            />
                         </div>
-                        <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded">Adicionar</button>
+                        <div className="flex justify-end pt-4 border-t border-slate-100">
+                            {onboardingMode ? (
+                                <button type="submit" className="px-6 py-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm font-medium">
+                                    Salvar Senha
+                                </button>
+                            ) : (
+                                <button type="submit" className="px-6 py-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm font-medium">
+                                    Alterar Senha
+                                </button>
+                            )}
+                        </div>
                     </form>
                 </div>
             )}
+            
+            {/* Services Tab */}
+            {settingsTab === 'services' && !onboardingMode && (
+                <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-fade-in">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4">Gerenciar Tipos de Consulta</h3>
+                    <p className="text-slate-600 mb-6">Adicione, edite ou remova os tipos de consulta oferecidos e seus respectivos valores.</p>
 
-            {/* Other tabs follow standard pattern... */}
-            {/* Security Tab */}
-            {settingsTab === 'security' && (
-                <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-                    <h3 className="text-lg font-semibold mb-4">Alterar Senha</h3>
-                    <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
-                        {!onboardingMode && <input type="password" placeholder="Senha Antiga" value={oldPassword} onChange={e => setOldPassword(e.target.value)} className="w-full p-2 border rounded" />}
-                        <input type="password" placeholder="Nova Senha" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-2 border rounded" />
-                        <input type="password" placeholder="Confirmar Nova Senha" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full p-2 border rounded" />
-                        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-full">Alterar</button>
-                    </form>
+                    <div className="mb-8 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <h4 className="font-semibold text-slate-700 mb-3">Adicionar Novo Tipo</h4>
+                        <form onSubmit={handleAddConsultationType} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                            <div className="md:col-span-2">
+                                <label htmlFor="newTypeName" className="block text-sm font-medium text-slate-700 mb-1">Nome do Serviço</label>
+                                <input
+                                    type="text"
+                                    id="newTypeName"
+                                    value={newTypeName}
+                                    onChange={handleTypeNameChange}
+                                    className={inputClass}
+                                    placeholder="Ex: Sessão Individual"
+                                />
+                                {typeErrors.name && <p className="text-red-500 text-xs mt-1">{typeErrors.name}</p>}
+                            </div>
+                            <div>
+                                <label htmlFor="newTypePrice" className="block text-sm font-medium text-slate-700 mb-1">Valor</label>
+                                <input
+                                    type="text"
+                                    id="newTypePrice"
+                                    value={newTypePrice}
+                                    onChange={handlePriceChange}
+                                    className={inputClass}
+                                    placeholder="R$ 0,00"
+                                    inputMode="numeric"
+                                />
+                                {typeErrors.price && <p className="text-red-500 text-xs mt-1">{typeErrors.price}</p>}
+                            </div>
+                            <div className="md:col-span-3 flex justify-end">
+                                <button type="submit" className="px-6 py-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm font-medium">
+                                    Adicionar Serviço
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <h4 className="font-semibold text-slate-700 mb-3">Serviços Cadastrados</h4>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full bg-white border border-slate-200">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-slate-600">Serviço</th>
+                                    <th className="text-right py-3 px-4 uppercase font-semibold text-sm text-slate-600">Valor</th>
+                                    <th className="text-right py-3 px-4 uppercase font-semibold text-sm text-slate-600">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {consultationTypes.length > 0 ? (
+                                    consultationTypes.map(ct => (
+                                        <tr key={ct.id} className="border-b border-slate-200 hover:bg-slate-50">
+                                            <td className="py-3 px-4">
+                                                {editingTypeId === ct.id ? (
+                                                    <input 
+                                                        type="text" 
+                                                        value={editTypeName} 
+                                                        onChange={(e) => setEditTypeName(e.target.value)} 
+                                                        className="p-1 border rounded w-full"
+                                                    />
+                                                ) : (
+                                                    <span className="font-medium text-slate-800">{ct.name}</span>
+                                                )}
+                                            </td>
+                                            <td className="py-3 px-4 text-right">
+                                                {editingTypeId === ct.id ? (
+                                                    <input 
+                                                        type="text" 
+                                                        value={editTypePrice} 
+                                                        onChange={handleEditPriceChange} 
+                                                        className="p-1 border rounded w-full text-right"
+                                                        inputMode="numeric"
+                                                    />
+                                                ) : (
+                                                    <span className="font-semibold text-emerald-600">
+                                                        {ct.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="py-3 px-4 text-right">
+                                                <div className="flex justify-end gap-3">
+                                                    {editingTypeId === ct.id ? (
+                                                        <>
+                                                            <button 
+                                                                onClick={() => handleSaveEdit(ct.id)} 
+                                                                className="text-emerald-600 hover:text-emerald-800 p-1 rounded-full hover:bg-emerald-50"
+                                                                title="Salvar"
+                                                            >
+                                                                <CheckIcon />
+                                                            </button>
+                                                            <button 
+                                                                onClick={handleCancelEdit} 
+                                                                className="text-slate-600 hover:text-slate-800 p-1 rounded-full hover:bg-slate-50"
+                                                                title="Cancelar Edição"
+                                                            >
+                                                                <CloseIcon />
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <button 
+                                                                onClick={() => handleStartEdit(ct)} 
+                                                                className="text-indigo-600 hover:text-indigo-800 p-1 rounded-full hover:bg-indigo-50"
+                                                                title="Editar"
+                                                            >
+                                                                <EditIcon />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeleteConsultationType(ct.id)} 
+                                                                className="text-rose-600 hover:text-rose-800 p-1 rounded-full hover:bg-rose-50"
+                                                                title="Excluir"
+                                                            >
+                                                                <TrashIcon />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={3} className="text-center py-8 text-slate-500">
+                                            Nenhum tipo de consulta cadastrado.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Data Tab */}
+            {settingsTab === 'data' && !onboardingMode && (
+                <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-fade-in">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4">Gerenciador de Dados</h3>
+                    <p className="text-slate-600 mb-6">Mantenha seus dados seguros com backups e restaurações. Você também pode carregar dados de teste.</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Backup Section */}
+                        <div className="bg-slate-50 p-5 rounded-lg border border-slate-200">
+                            <h4 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                <DownloadIcon /> Fazer Backup
+                            </h4>
+                            <p className="text-sm text-slate-600 mb-4">
+                                Baixe um arquivo JSON com todos os dados do sistema para guardar em segurança. Requer confirmação de senha.
+                            </p>
+                            <button 
+                                onClick={handleInitiateBackup}
+                                className="w-full px-5 py-2.5 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm font-medium flex items-center justify-center gap-2"
+                            >
+                                <DownloadIcon /> Baixar Backup
+                            </button>
+                        </div>
+
+                        {/* Restore Section */}
+                        <div className="bg-slate-50 p-5 rounded-lg border border-slate-200">
+                            <h4 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                <UploadIcon /> Restaurar Backup
+                            </h4>
+                            <p className="text-sm text-slate-600 mb-4">
+                                Carregue um arquivo de backup JSON para restaurar os dados do sistema. Esta ação irá sobrescrever os dados atuais.
+                            </p>
+                            <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept=".json" className="hidden" />
+                            <button 
+                                onClick={handleTriggerRestore}
+                                className="w-full px-5 py-2.5 rounded-full bg-amber-600 text-white hover:bg-amber-700 transition-colors shadow-sm font-medium flex items-center justify-center gap-2"
+                            >
+                                <UploadIcon /> Carregar e Restaurar
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Load Mock Data */}
+                    <div className="mt-8 border-t border-slate-100 pt-6">
+                        <h4 className="font-semibold text-slate-700 mb-3">Dados de Teste</h4>
+                        <p className="text-sm text-slate-600 mb-4">
+                            Carregue um conjunto de dados de exemplo para testar as funcionalidades do sistema. 
+                            <span className="font-bold text-rose-600"> Esta ação irá misturar com dados existentes e não é recomendada em uso normal.</span>
+                        </p>
+                        <button 
+                            onClick={handleLoadMockData}
+                            className="px-6 py-2.5 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors font-medium"
+                        >
+                            Carregar Dados de Teste
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Documentation Tab */}
+            {settingsTab === 'docs' && !onboardingMode && (
+                <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-fade-in">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4">Documentação</h3>
+                    <div className="text-slate-600 space-y-4">
+                        <p>
+                            Aqui você encontrará informações detalhadas sobre como usar o sistema, 
+                            dicas e as políticas de privacidade.
+                        </p>
+                        <ul className="list-disc list-inside space-y-1">
+                            <li>Manual do Usuário</li>
+                            <li>Perguntas Frequentes</li>
+                            <li>Termos de Serviço</li>
+                            <li>Política de Privacidade</li>
+                        </ul>
+                        <button onClick={() => onNavigate('help')} className="text-indigo-600 hover:text-indigo-800 font-medium text-sm mt-4 inline-flex items-center gap-2">
+                            <FileTextIcon className="w-4 h-4"/> Acessar Central de Ajuda Completa
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Audit Log Tab (Master Access Only) */}
+            {settingsTab === 'audit' && isMasterAccess && !onboardingMode && setAuditLogs && (
+                <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 animate-fade-in">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4">Logs de Auditoria</h3>
+                    <p className="text-slate-600 mb-6">Registre e visualize todas as ações importantes realizadas no sistema.</p>
+
+                    <div className="mb-6 flex flex-col md:flex-row gap-4">
+                        <input
+                            type="text"
+                            placeholder="Buscar por ação ou detalhes..."
+                            value={auditSearch}
+                            onChange={(e) => setAuditSearch(e.target.value)}
+                            className={inputClass + " flex-grow"}
+                        />
+                        <input
+                            type="date"
+                            value={auditDateFilter}
+                            onChange={(e) => setAuditDateFilter(e.target.value)}
+                            className={inputClass + " w-full md:w-auto"}
+                        />
+                         <button
+                            onClick={() => { setAuditSearch(''); setAuditDateFilter(''); }}
+                            className="px-4 py-2 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors text-sm font-medium w-full md:w-auto"
+                        >
+                            Limpar Filtros
+                        </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full bg-white border border-slate-200">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-slate-600">Data/Hora</th>
+                                    <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-slate-600">Ação</th>
+                                    <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-slate-600">Detalhes</th>
+                                    <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-slate-600">Usuário</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredAuditLogs.length > 0 ? (
+                                    filteredAuditLogs.map(log => (
+                                        <tr key={log.id} className="border-b border-slate-200 hover:bg-slate-50">
+                                            <td className="py-3 px-4 text-xs text-slate-500 whitespace-nowrap">{new Date(log.timestamp).toLocaleString('pt-BR')}</td>
+                                            <td className="py-3 px-4 text-sm font-medium text-slate-700">{log.action}</td>
+                                            <td className="py-3 px-4 text-sm text-slate-600 max-w-xs">{log.details}</td>
+                                            <td className="py-3 px-4 text-sm text-slate-500">{log.user}</td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={4} className="text-center py-10 text-slate-500">
+                                            Nenhum log de auditoria encontrado.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 
             {onboardingMode && (
-                <div className="flex justify-end pt-4">
+                <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
                     <button 
                         onClick={handleFinishOnboarding}
-                        className="px-6 py-3 bg-indigo-600 text-white rounded-full font-bold shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2"
+                        className="px-8 py-3 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-colors shadow-lg"
                     >
-                        <CheckIcon />
                         Concluir Configuração
                     </button>
                 </div>
             )}
-         </div>
+        </div>
     </ModuleContainer>
   );
 };
-
-export default SettingsModule;

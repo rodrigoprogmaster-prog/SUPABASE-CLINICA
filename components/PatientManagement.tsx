@@ -65,6 +65,9 @@ const formatPhoneNumber = (value: string) => {
   return formatted;
 };
 
+// Elegant UI Style
+const inputClass = "w-full p-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 font-medium transition-all focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none placeholder-slate-400 hover:border-indigo-300 shadow-sm";
+const textareaClass = "w-full p-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 font-medium transition-all focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none placeholder-slate-400 hover:border-indigo-300 shadow-sm resize-none";
 
 const PatientManagement: React.FC<PatientManagementProps> = ({ 
   onNavigate, onViewPEP, onViewFinancials, patients, setPatients, appointments, onLogAction, onShowToast, onModalStateChange 
@@ -123,48 +126,14 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
   };
 
   const validateForm = () => {
-    const newErrors = { name: '', email: '', phone: '', dateOfBirth: '', address: '', occupation: '' };
-    let isValid = true;
-    
-    const today = new Date().toISOString().split('T')[0];
-    
-    if (!formData.name.trim()) { newErrors.name = 'O nome é obrigatório.'; isValid = false; }
-    if (!formData.dateOfBirth.trim()) { newErrors.dateOfBirth = 'A data de nascimento é obrigatória.'; isValid = false; }
-    if (formData.dateOfBirth > today) { newErrors.dateOfBirth = 'A data não pode ser futura.'; isValid = false; }
-    if (!formData.address.trim()) { newErrors.address = 'O endereço é obrigatório.'; isValid = false; }
-    if (!formData.occupation.trim()) { newErrors.occupation = 'A profissão é obrigatória.'; isValid = false; }
-    
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!formData.email.trim()) {
-      newErrors.email = 'O E-mail é obrigatório.';
-      isValid = false;
-    } else if (!emailRegex.test(formData.email)) {
-      newErrors.email = 'Insira um e-mail válido.';
-      isValid = false;
-    }
-    
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'O telefone é obrigatório.';
-      isValid = false;
-    } else {
-      const phoneDigits = formData.phone.replace(/\D/g, '');
-      const cellPhoneRegex = /^\d{2}9\d{8}$/; 
-      if (!cellPhoneRegex.test(phoneDigits)) {
-          newErrors.phone = 'Formato inválido. Use DDD + 9 + 8 dígitos.';
-          isValid = false;
-      }
-    }
-
-    setErrors(newErrors);
-    return isValid;
+    // Validation removed as requested. Always return true.
+    setErrors({ name: '', email: '', phone: '', dateOfBirth: '', address: '', occupation: '' });
+    return true;
   };
 
   const handleProceedToConfirm = () => {
-    if (validateForm()) {
-      setFormStep('confirm');
-    } else {
-      onShowToast('Por favor, corrija os erros no formulário.', 'error');
-    }
+    validateForm(); // Just clears errors if any
+    setFormStep('confirm');
   };
 
   const handleConfirmAndSave = async () => {
@@ -273,7 +242,6 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
 
   return (
     <ModuleContainer title="Gestão de Pacientes" onBack={() => onNavigate('dashboard')}>
-      {/* ... (O restante do JSX permanece inalterado, apenas a lógica de submit mudou) ... */}
       <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="relative w-full md:w-72">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -287,7 +255,7 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
                 placeholder="Buscar paciente por nome..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2.5 border border-slate-300 rounded-full w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-sm shadow-sm transition-all"
+                className={inputClass + " pl-10"} // Apply inputClass
             />
         </div>
 
@@ -299,8 +267,13 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
                     type="checkbox" 
                     checked={showInactive}
                     onChange={(e) => setShowInactive(e.target.checked)}
-                    style={{ colorScheme: 'light' }}
-                    className="appearance-none h-4 w-4 rounded border border-gray-400 bg-white checked:bg-indigo-600 checked:border-transparent focus:ring-indigo-500 focus:ring-offset-2 accent-indigo-600 cursor-pointer"
+                    // Tailwind custom checkbox classes
+                    className="appearance-none relative w-4 h-4 rounded-sm border border-slate-400 cursor-pointer bg-white 
+                                checked:bg-indigo-600 checked:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 
+                                transition-all duration-200
+                                before:content-[''] before:absolute before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 
+                                before:w-2 before:h-2 before:bg-white before:rounded-full before:opacity-0 
+                                checked:before:opacity-100 checked:before:scale-100 before:transition-all before:duration-200"
                 />
             </div>
             <button
@@ -335,7 +308,7 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
                     <input 
                         type="text" id="name" name="name" 
                         value={formData.name} onChange={handleInputChange} 
-                        className={`w-full p-2.5 border rounded-md bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all ${errors.name ? 'border-red-500' : 'border-slate-300'}`} 
+                        className={inputClass}
                         placeholder="Ex: Maria da Silva"
                     />
                     {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
@@ -346,7 +319,7 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
                     <input 
                         type="email" id="email" name="email" 
                         value={formData.email} onChange={handleInputChange} 
-                        className={`w-full p-2.5 border rounded-md bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all ${errors.email ? 'border-red-500' : 'border-slate-300'}`} 
+                        className={inputClass}
                         placeholder="exemplo@email.com"
                     />
                     {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
@@ -357,7 +330,7 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
                         type="tel" id="phone" name="phone" 
                         value={formData.phone} onChange={handleInputChange} 
                         placeholder="(XX) 9XXXX-XXXX" 
-                        className={`w-full p-2.5 border rounded-md bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all ${errors.phone ? 'border-red-500' : 'border-slate-300'}`} 
+                        className={inputClass}
                     />
                     {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
                   </div>
@@ -368,7 +341,7 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
                         type="date" id="dateOfBirth" name="dateOfBirth" 
                         max={new Date().toISOString().split('T')[0]} 
                         value={formData.dateOfBirth} onChange={handleInputChange} 
-                        className={`w-full p-2.5 border rounded-md bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all ${errors.dateOfBirth ? 'border-red-500' : 'border-slate-300'}`} 
+                        className={inputClass}
                     />
                     {errors.dateOfBirth && <p className="text-red-500 text-sm mt-1">{errors.dateOfBirth}</p>}
                   </div>
@@ -377,7 +350,7 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
                     <input 
                         type="text" id="occupation" name="occupation" 
                         value={formData.occupation} onChange={handleInputChange} 
-                        className={`w-full p-2.5 border rounded-md bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all ${errors.occupation ? 'border-red-500' : 'border-slate-300'}`} 
+                        className={inputClass}
                     />
                     {errors.occupation && <p className="text-red-500 text-sm mt-1">{errors.occupation}</p>}
                   </div>
@@ -387,7 +360,7 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
                     <input 
                         type="text" id="address" name="address" 
                         value={formData.address} onChange={handleInputChange} 
-                        className={`w-full p-2.5 border rounded-md bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all ${errors.address ? 'border-red-500' : 'border-slate-300'}`} 
+                        className={inputClass}
                         placeholder="Rua, Número, Bairro, Cidade"
                     />
                     {errors.address && <p className="text-red-500 text-sm mt-1">{errors.address}</p>}
@@ -402,7 +375,7 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
                               <input 
                                   type="text" id="emergencyName" name="emergencyName" 
                                   value={formData.emergencyName} onChange={handleInputChange} 
-                                  className="w-full p-2.5 border border-slate-300 rounded-md bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all" 
+                                  className={inputClass}
                                   placeholder="Nome do familiar/amigo"
                               />
                           </div>
@@ -411,7 +384,7 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
                               <input 
                                   type="tel" id="emergencyPhone" name="emergencyPhone" 
                                   value={formData.emergencyPhone} onChange={handleInputChange} 
-                                  className="w-full p-2.5 border border-slate-300 rounded-md bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all" 
+                                  className={inputClass}
                                   placeholder="(XX) 9XXXX-XXXX" 
                               />
                           </div>
@@ -425,7 +398,7 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
                     <textarea 
                         id="internalNotes" name="internalNotes" 
                         value={formData.internalNotes} onChange={handleInputChange} 
-                        className="w-full p-2.5 border rounded-md h-24 bg-white border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none"
+                        className={`${textareaClass} h-24`}
                     ></textarea>
                   </div>
                 </div>
@@ -444,7 +417,7 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Nome</span>
-                            <span className="text-slate-800 font-medium text-base">{formData.name}</span>
+                            <span className="text-slate-800 font-medium text-base">{formData.name || '-'}</span>
                         </div>
                          <div>
                             <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Data de Nascimento</span>
@@ -452,19 +425,19 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
                         </div>
                         <div>
                             <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">E-mail</span>
-                            <span className="text-slate-800">{formData.email}</span>
+                            <span className="text-slate-800">{formData.email || '-'}</span>
                         </div>
                         <div>
                             <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Telefone</span>
-                            <span className="text-slate-800">{formData.phone}</span>
+                            <span className="text-slate-800">{formData.phone || '-'}</span>
                         </div>
                          <div>
                             <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Profissão</span>
-                            <span className="text-slate-800">{formData.occupation}</span>
+                            <span className="text-slate-800">{formData.occupation || '-'}</span>
                         </div>
                          <div className="sm:col-span-2">
                             <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Endereço</span>
-                            <span className="text-slate-800">{formData.address}</span>
+                            <span className="text-slate-800">{formData.address || '-'}</span>
                         </div>
                         
                         {(formData.emergencyName || formData.emergencyPhone) && (
@@ -548,50 +521,51 @@ const PatientManagement: React.FC<PatientManagementProps> = ({
               ))
             ) : (
               <>
-                {displayedPatients.map((patient) => {
-                  const hasAppointments = patientHasAppointments(patient.id);
-                  return (
-                  <tr 
-                    key={patient.id} 
-                    className={`border-b border-slate-200 transition-colors duration-200 hover:bg-indigo-50 cursor-pointer ${!patient.isActive ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : ''}`}
-                    onClick={() => openEditModal(patient)}
-                  >
-                    <td className="py-3 px-4">{patient.name}</td>
-                    <td className="py-3 px-4 hidden md:table-cell">{patient.email}</td>
-                    <td className="py-3 px-4 hidden lg:table-cell">{new Date(patient.joinDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</td>
-                    <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center justify-center gap-4">
-                        <div className="group relative">
-                          <button 
-                            onClick={() => onViewPEP(patient.id)} 
-                            className={`p-1 rounded-full hover:bg-slate-100 ${hasAppointments ? 'text-indigo-600 hover:text-indigo-800' : 'text-slate-400 cursor-not-allowed'}`}
-                            aria-label={`Ver prontuário de ${patient.name}`}
-                            disabled={!hasAppointments}
-                          >
-                            <FileTextIcon />
-                          </button>
-                          <Tooltip text={hasAppointments ? 'Ver Prontuário' : 'Nenhuma consulta registrada'} />
+                {displayedPatients.length > 0 ? (
+                    displayedPatients.map((patient) => {
+                    const hasAppointments = patientHasAppointments(patient.id);
+                    return (
+                    <tr 
+                        key={patient.id} 
+                        className={`border-b border-slate-200 transition-colors duration-200 hover:bg-indigo-50 cursor-pointer ${!patient.isActive ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : ''}`}
+                        onClick={() => openEditModal(patient)}
+                    >
+                        <td className="py-3 px-4">{patient.name || 'Sem nome'}</td>
+                        <td className="py-3 px-4 hidden md:table-cell">{patient.email || '-'}</td>
+                        <td className="py-3 px-4 hidden lg:table-cell">{new Date(patient.joinDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</td>
+                        <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-4">
+                            <div className="group relative">
+                            <button 
+                                onClick={() => onViewPEP(patient.id)} 
+                                className={`p-1 rounded-full hover:bg-slate-100 ${hasAppointments ? 'text-indigo-600 hover:text-indigo-800' : 'text-slate-400 cursor-not-allowed'}`}
+                                aria-label={`Ver prontuário de ${patient.name}`}
+                                disabled={!hasAppointments}
+                            >
+                                <FileTextIcon />
+                            </button>
+                            <Tooltip text={hasAppointments ? 'Ver Prontuário' : 'Nenhuma consulta registrada'} />
+                            </div>
+                            <div className="group relative">
+                            <button onClick={() => onViewFinancials(patient.id)} className="p-1 rounded-full hover:bg-slate-100 text-emerald-600 hover:text-emerald-800" aria-label={`Ver financeiro de ${patient.name}`}><MoneyIcon /></button>
+                            <Tooltip text="Ver Financeiro" />
+                            </div>
+                            <div className="group relative">
+                            <button onClick={() => setPatientToToggleStatus(patient)} className={`p-1 rounded-full hover:bg-slate-100 ${patient.isActive ? 'text-amber-600 hover:text-amber-800' : 'text-emerald-600 hover:text-emerald-800'}`} aria-label={`${patient.isActive ? 'Inativar' : 'Reativar'} ${patient.name}`}>
+                                {patient.isActive ? <UserXIcon /> : <UserCheckIcon />}
+                            </button>
+                            <Tooltip text={patient.isActive ? 'Inativar Paciente' : 'Reativar Paciente'} />
+                            </div>
+                            <div className="group relative">
+                            <button onClick={() => setPatientToDelete(patient)} className="p-1 rounded-full hover:bg-slate-100 text-rose-600 hover:text-rose-800" aria-label={`Excluir ${patient.name}`}><TrashIcon /></button>
+                            <Tooltip text="Excluir Paciente" />
+                            </div>
                         </div>
-                        <div className="group relative">
-                          <button onClick={() => onViewFinancials(patient.id)} className="p-1 rounded-full hover:bg-slate-100 text-emerald-600 hover:text-emerald-800" aria-label={`Ver financeiro de ${patient.name}`}><MoneyIcon /></button>
-                          <Tooltip text="Ver Financeiro" />
-                        </div>
-                        <div className="group relative">
-                          <button onClick={() => setPatientToToggleStatus(patient)} className={`p-1 rounded-full hover:bg-slate-100 ${patient.isActive ? 'text-amber-600 hover:text-amber-800' : 'text-emerald-600 hover:text-emerald-800'}`} aria-label={`${patient.isActive ? 'Inativar' : 'Reativar'} ${patient.name}`}>
-                            {patient.isActive ? <UserXIcon /> : <UserCheckIcon />}
-                          </button>
-                          <Tooltip text={patient.isActive ? 'Inativar Paciente' : 'Reativar Paciente'} />
-                        </div>
-                        <div className="group relative">
-                          <button onClick={() => setPatientToDelete(patient)} className="p-1 rounded-full hover:bg-slate-100 text-rose-600 hover:text-rose-800" aria-label={`Excluir ${patient.name}`}><TrashIcon /></button>
-                          <Tooltip text="Excluir Paciente" />
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                  );
-                })}
-                {displayedPatients.length === 0 && (
+                        </td>
+                    </tr>
+                    );
+                    })
+                ) : (
                     <tr>
                         <td colSpan={4} className="text-center py-10 text-slate-500">
                             {searchTerm ? 'Nenhum paciente encontrado com esse nome.' : 'Nenhum paciente encontrado.'}

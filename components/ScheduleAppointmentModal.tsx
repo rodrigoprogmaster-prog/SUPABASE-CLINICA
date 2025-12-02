@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Appointment, Patient, ConsultationType } from '../types';
+import { Appointment, Patient, ConsultationType, BlockedDay } from '../types';
 import CloseIcon from './icons/CloseIcon';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
+import LockIcon from './icons/LockIcon';
 import { generateDailyTimeSlots } from '../utils/time';
 import { getTodayString } from '../utils/formatting';
 import { checkIsHoliday } from '../utils/holidays';
-import ClockIcon from './icons/CalendarIcon'; // Reusing CalendarIcon as generic time icon or similar
 
 interface ScheduleAppointmentModalProps {
   isOpen: boolean;
@@ -19,7 +19,22 @@ interface ScheduleAppointmentModalProps {
   formError: string;
   setFormError: React.Dispatch<React.SetStateAction<string>>;
   appointmentToReschedule?: Appointment | null;
+  blockedDays?: BlockedDay[];
+  onBlockDay?: (date: string) => Promise<void>;
+  onUnblockDay?: (date: string) => Promise<void>;
 }
+
+const ChevronDownIcon = () => (
+  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-500 group-hover:text-indigo-600 transition-colors">
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  </div>
+);
+
+// Elegant UI Styles
+const selectClass = "appearance-none w-full p-3 pr-10 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 font-medium transition-all focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none cursor-pointer hover:border-indigo-300 shadow-sm";
+const inputClass = "w-full p-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 font-medium transition-all focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none hover:border-indigo-300 shadow-sm";
 
 const ScheduleAppointmentModal: React.FC<ScheduleAppointmentModalProps> = ({
   isOpen,
@@ -30,7 +45,10 @@ const ScheduleAppointmentModal: React.FC<ScheduleAppointmentModalProps> = ({
   onSaveAppointment,
   formError: _ignored,
   setFormError: _setIgnored,
-  appointmentToReschedule
+  appointmentToReschedule,
+  blockedDays = [],
+  onBlockDay,
+  onUnblockDay
 }) => {
   const [newAppointment, setNewAppointment] = useState({ 
     patientId: '', 
@@ -87,21 +105,9 @@ const ScheduleAppointmentModal: React.FC<ScheduleAppointmentModalProps> = ({
       // We relax "isFull" logic since users can now type any time, but we still use it for visual cues on the calendar
       const isFull = takenCount >= (totalCount * 1.5); // Allow some flexibility over standard slots
       const isPast = dateStr < getTodayString();
-      return { isFull, isPast, availableCount: Math.max(0, totalCount - takenCount) };
-  }, [appointments, totalDailySlots]);
-
-  // Check if the specifically typed time is already taken
-  const isTimeConflict = useMemo(() => {
-      if (!newAppointment.date || !newAppointment.time) return false;
-      
-      return appointments.some(app => 
-          app.date === newAppointment.date && 
-          app.time === newAppointment.time && 
-          app.status === 'scheduled' &&
-          // If rescheduling, exclude the appointment being moved from conflict check
-          (!appointmentToReschedule || app.id !== appointmentToReschedule.id)
-      );
-  }, [newAppointment.date, newAppointment.time, appointments, appointmentToReschedule]);
+      const isBlocked = blockedDays.some(bd => bd.date === dateStr);
+      return { isFull, isPast, isBlocked, availableCount: Math.max(0, totalCount - takenCount) };
+  }, [appointments, totalDailySlots, blockedDays]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -113,50 +119,8 @@ const ScheduleAppointmentModal: React.FC<ScheduleAppointmentModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const newErrors = {
-        patientId: '',
-        date: '',
-        time: '',
-        consultationTypeId: ''
-    };
-    let isValid = true;
-
-    if (!newAppointment.patientId) { newErrors.patientId = 'Selecione um paciente.'; isValid = false; }
-    if (!newAppointment.date) { newErrors.date = 'Selecione uma data.'; isValid = false; }
-    
-    const todayStr = getTodayString();
-    // Validate Date is not in the past
-    if (newAppointment.date && newAppointment.date < todayStr) {
-        newErrors.date = 'A data não pode ser anterior a hoje.';
-        isValid = false;
-    }
-
-    if (!newAppointment.time) { 
-        newErrors.time = 'Informe um horário.'; 
-        isValid = false; 
-    } else if (newAppointment.date === todayStr) {
-        // Validate Time if date is today
-        const now = new Date();
-        const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-        
-        const [inputHours, inputMinutes] = newAppointment.time.split(':').map(Number);
-        const inputTotalMinutes = inputHours * 60 + inputMinutes;
-
-        if (inputTotalMinutes < currentTotalMinutes) {
-            newErrors.time = 'O horário não pode ser anterior ao atual.';
-            isValid = false;
-        }
-    }
-
-    if (isTimeConflict) { newErrors.time = 'Horário já ocupado.'; isValid = false; }
-    if (!newAppointment.consultationTypeId) { newErrors.consultationTypeId = 'Selecione um tipo.'; isValid = false; }
-
-    setErrors(newErrors);
-
-    if (isValid) {
-        onSaveAppointment(newAppointment);
-    }
+    // All validation logic removed to allow saving incomplete forms
+    onSaveAppointment(newAppointment);
   };
 
   // Calendar Logic
@@ -183,9 +147,25 @@ const ScheduleAppointmentModal: React.FC<ScheduleAppointmentModalProps> = ({
       if (holidayName) return;
 
       const { isPast } = getDayAvailability(dateStr);
-      if (!isPast) {
+      
+      // Still prevent selecting past dates for UX sanity, but validation on submit is gone
+      if (!isPast) { 
           setNewAppointment(prev => ({ ...prev, date: dateStr })); 
           if(errors.date) setErrors(prev => ({...prev, date: ''}));
+      }
+  };
+
+  const handleBlockDayClick = async () => {
+      if (newAppointment.date && onBlockDay) {
+          await onBlockDay(newAppointment.date);
+          setNewAppointment(prev => ({ ...prev, date: '' })); // Deselect to refresh view
+      }
+  };
+
+  const handleUnblockDayClick = async () => {
+      if (newAppointment.date && onUnblockDay) {
+          await onUnblockDay(newAppointment.date);
+          setNewAppointment(prev => ({ ...prev, date: '' })); // Deselect to refresh view
       }
   };
 
@@ -194,6 +174,7 @@ const ScheduleAppointmentModal: React.FC<ScheduleAppointmentModalProps> = ({
   }
 
   const isRescheduleMode = !!appointmentToReschedule;
+  const isSelectedDateBlocked = blockedDays.some(bd => bd.date === newAppointment.date);
 
   return (
     <div
@@ -222,30 +203,33 @@ const ScheduleAppointmentModal: React.FC<ScheduleAppointmentModalProps> = ({
           {/* Patient Selection */}
           <div>
             <label htmlFor="patientId" className="block text-sm font-medium text-slate-700 mb-1">Paciente</label>
-            <select
-              id="patientId"
-              name="patientId"
-              value={newAppointment.patientId}
-              onChange={handleInputChange}
-              disabled={isRescheduleMode}
-              className={`w-full p-2 border rounded-md bg-white focus:ring-2 focus:ring-indigo-500 ${errors.patientId ? 'border-red-500' : 'border-slate-300'} ${isRescheduleMode ? 'bg-slate-100 cursor-not-allowed text-slate-500' : ''}`}
-            >
-              <option value="">Selecione um paciente</option>
-              {activePatients.sort((a,b) => a.name.localeCompare(b.name)).map(patient => (
-                <option key={patient.id} value={patient.id}>{patient.name}</option>
-              ))}
-            </select>
+            <div className="relative group">
+                <select
+                id="patientId"
+                name="patientId"
+                value={newAppointment.patientId}
+                onChange={handleInputChange}
+                disabled={isRescheduleMode}
+                className={`${selectClass} ${errors.patientId ? 'border-red-500' : ''} ${isRescheduleMode ? 'bg-slate-100 cursor-not-allowed text-slate-500' : ''}`}
+                >
+                <option value="">Selecione um paciente</option>
+                {activePatients.sort((a,b) => a.name.localeCompare(b.name)).map(patient => (
+                    <option key={patient.id} value={patient.id}>{patient.name}</option>
+                ))}
+                </select>
+                <ChevronDownIcon />
+            </div>
             {errors.patientId && <p className="text-red-500 text-xs mt-1">{errors.patientId}</p>}
           </div>
 
           {/* Intelligent Date Selection */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Selecione a Nova Data</label>
-            <div className={`border rounded-md p-4 bg-slate-50 ${errors.date ? 'border-red-500' : ''}`}>
+            <div className={`border rounded-xl p-4 bg-slate-50 ${errors.date ? 'border-red-500' : 'border-slate-200'}`}>
                 <div className="flex justify-between items-center mb-4">
-                    <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-slate-200 rounded-full"><ArrowLeftIcon /></button>
+                    <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-slate-200 rounded-full text-slate-600 hover:text-indigo-600 transition-colors"><ArrowLeftIcon /></button>
                     <span className="font-bold text-slate-700 capitalize">{monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}</span>
-                    <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-200 rounded-full"><ArrowRightIcon /></button>
+                    <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-200 rounded-full text-slate-600 hover:text-indigo-600 transition-colors"><ArrowRightIcon /></button>
                 </div>
                 
                 <div className="grid grid-cols-7 gap-1 mb-2 text-center">
@@ -259,14 +243,19 @@ const ScheduleAppointmentModal: React.FC<ScheduleAppointmentModalProps> = ({
                     {daysInMonth.map(day => {
                         const dateStr = day.toISOString().split('T')[0];
                         const holidayName = checkIsHoliday(dateStr);
-                        const { isFull, isPast, availableCount } = getDayAvailability(dateStr);
+                        const { isFull, isPast, isBlocked, availableCount } = getDayAvailability(dateStr);
                         const isSelected = newAppointment.date === dateStr;
                         const isToday = dateStr === getTodayString();
 
-                        let buttonClass = "h-10 w-full rounded-full flex flex-col items-center justify-center text-sm transition-all relative border ";
+                        let buttonClass = "h-10 w-full rounded-xl flex flex-col items-center justify-center text-sm transition-all relative border ";
                         let titleText = "";
 
-                        if (holidayName) {
+                        if (isBlocked) {
+                            buttonClass += isSelected 
+                                ? "bg-slate-600 text-white border-slate-600 shadow-md scale-105 z-10" // Selected blocked state
+                                : "bg-slate-200 text-slate-500 border-transparent cursor-pointer"; // Blocked but clickable to unblock
+                            titleText = "Dia Bloqueado Manualmente";
+                        } else if (holidayName) {
                             buttonClass += "bg-rose-50/50 text-rose-300 border-transparent cursor-not-allowed";
                             titleText = `Feriado: ${holidayName}`;
                         } else if (isSelected) {
@@ -293,8 +282,13 @@ const ScheduleAppointmentModal: React.FC<ScheduleAppointmentModalProps> = ({
                                 className={buttonClass}
                                 title={titleText}
                             >
-                                <span>{day.getDate()}</span>
-                                {!isPast && !isSelected && !holidayName && (
+                                {isBlocked && !isSelected ? (
+                                    <LockIcon className="w-3 h-3" />
+                                ) : (
+                                    <span>{day.getDate()}</span>
+                                )}
+                                
+                                {!isPast && !isSelected && !holidayName && !isBlocked && (
                                     <span className="absolute bottom-1 w-1 h-1 bg-emerald-400 rounded-full"></span>
                                 )}
                                 {!!holidayName && (
@@ -306,10 +300,37 @@ const ScheduleAppointmentModal: React.FC<ScheduleAppointmentModalProps> = ({
                 </div>
             </div>
             {errors.date && <p className="text-red-500 text-xs mt-1">{errors.date}</p>}
+            
+            {/* Block/Unblock Actions */}
+            {newAppointment.date && (
+                <div className="mt-2 flex justify-end">
+                    {isSelectedDateBlocked ? (
+                        <button
+                            type="button"
+                            onClick={handleUnblockDayClick}
+                            // Only allow unblocking current or future days
+                            disabled={newAppointment.date < getTodayString()}
+                            className="text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-colors flex items-center gap-1"
+                        >
+                            <LockIcon className="w-3 h-3" /> Desbloquear Dia {new Date(newAppointment.date + 'T00:00:00').getDate()}
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={handleBlockDayClick}
+                            // Only allow blocking current or future days
+                            disabled={newAppointment.date < getTodayString()}
+                            className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-full hover:bg-rose-100 transition-colors flex items-center gap-1"
+                        >
+                            <LockIcon className="w-3 h-3" /> Bloquear Dia {new Date(newAppointment.date + 'T00:00:00').getDate()}
+                        </button>
+                    )}
+                </div>
+            )}
           </div>
 
-          {/* Time and Type Selection */}
-          {newAppointment.date && (
+          {/* Time and Type Selection - Only show if date is selected and NOT blocked */}
+          {newAppointment.date && !isSelectedDateBlocked && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
                 <div>
                     <label htmlFor="time" className="block text-sm font-medium text-slate-700 mb-1">Novo Horário</label>
@@ -320,33 +341,42 @@ const ScheduleAppointmentModal: React.FC<ScheduleAppointmentModalProps> = ({
                             name="time"
                             value={newAppointment.time}
                             onChange={handleInputChange}
-                            className={`w-full p-2 border rounded-md bg-white focus:ring-2 focus:ring-indigo-500 ${errors.time ? 'border-red-500' : 'border-slate-300'}`}
-                            required
+                            className={`${inputClass} ${errors.time ? 'border-red-500' : ''}`}
                         />
                     </div>
-                    {isTimeConflict && <p className="text-amber-600 text-xs mt-1 font-medium">⚠ Este horário já está ocupado.</p>}
                     {errors.time && <p className="text-red-500 text-xs mt-1">{errors.time}</p>}
                 </div>
 
                 <div>
                     <label htmlFor="consultationTypeId" className="block text-sm font-medium text-slate-700 mb-1">Tipo de Consulta</label>
-                    <select
-                    id="consultationTypeId"
-                    name="consultationTypeId"
-                    value={newAppointment.consultationTypeId}
-                    onChange={handleInputChange}
-                    disabled={isRescheduleMode}
-                    className={`w-full p-2 border rounded-md bg-white focus:ring-2 focus:ring-indigo-500 ${errors.consultationTypeId ? 'border-red-500' : 'border-slate-300'} ${isRescheduleMode ? 'bg-slate-100 cursor-not-allowed text-slate-500' : ''}`}
-                    required
-                    >
-                    <option value="">Selecione o tipo</option>
-                    {consultationTypes.map(type => (
-                        <option key={type.id} value={type.id}>{type.name} - {type.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</option>
-                    ))}
-                    </select>
+                    <div className="relative group">
+                        <select
+                        id="consultationTypeId"
+                        name="consultationTypeId"
+                        value={newAppointment.consultationTypeId}
+                        onChange={handleInputChange}
+                        disabled={isRescheduleMode}
+                        className={`${selectClass} ${errors.consultationTypeId ? 'border-red-500' : ''} ${isRescheduleMode ? 'bg-slate-100 cursor-not-allowed text-slate-500' : ''}`}
+                        >
+                        <option value="">Selecione o tipo</option>
+                        {consultationTypes.map(type => (
+                            <option key={type.id} value={type.id}>{type.name} - {type.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</option>
+                        ))}
+                        </select>
+                        <ChevronDownIcon />
+                    </div>
                     {errors.consultationTypeId && <p className="text-red-500 text-xs mt-1">{errors.consultationTypeId}</p>}
                 </div>
             </div>
+          )}
+          
+          {newAppointment.date && isSelectedDateBlocked && (
+              <div className="bg-slate-100 border border-slate-200 text-slate-600 p-4 rounded-md text-center text-sm">
+                  <p className="font-semibold flex items-center justify-center gap-2">
+                      <LockIcon className="w-4 h-4"/> Agenda Fechada
+                  </p>
+                  <p className="mt-1">Este dia foi bloqueado manualmente para novos agendamentos.</p>
+              </div>
           )}
 
           <div className="flex justify-end gap-3 pt-4 border-t mt-6">
@@ -359,7 +389,14 @@ const ScheduleAppointmentModal: React.FC<ScheduleAppointmentModalProps> = ({
             </button>
             <button
               type="submit"
-              className={`px-4 py-2 rounded-full text-white transition-colors ${isRescheduleMode ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+              disabled={isSelectedDateBlocked}
+              className={`px-4 py-2 rounded-full text-white transition-colors ${
+                  isSelectedDateBlocked 
+                    ? 'bg-slate-300 cursor-not-allowed' 
+                    : isRescheduleMode 
+                        ? 'bg-amber-600 hover:bg-amber-700' 
+                        : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
             >
               {isRescheduleMode ? 'Reagendar' : 'Confirmar Agendamento'}
             </button>

@@ -1,7 +1,5 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
-import ReactDOM from 'react-dom/client';
-import { View, Patient, Appointment, SessionNote, InternalObservation, Transaction, ConsultationType, NotificationLog, AuditLogEntry, ToastNotification } from './types';
+import { View, Patient, Appointment, SessionNote, InternalObservation, Transaction, ConsultationType, NotificationLog, AuditLogEntry, ToastNotification, BlockedDay } from './types';
 import Dashboard from './components/Dashboard';
 import PatientManagement from './components/PatientManagement';
 import AppointmentScheduler from './components/AppointmentScheduler';
@@ -10,7 +8,8 @@ import FinancialModule from './components/FinancialModule';
 import AdminModule from './components/AdminModule';
 import { ManagementDashboard } from './components/ManagementDashboard';
 import HeaderClock from './components/HeaderClock';
-import SettingsModule from './components/SettingsModule';
+// FIX: SettingsModule is a named export, not a default export.
+import { SettingsModule } from './components/SettingsModule';
 import PasswordModal from './components/PasswordModal';
 import useLocalStorage from './hooks/useLocalStorage';
 import Login from './components/Login';
@@ -29,7 +28,6 @@ import WelcomeModal from './components/WelcomeModal';
 import BirthdayModal from './components/BirthdayModal';
 import ReminderCheckModal from './components/ReminderCheckModal';
 import HelpModule from './components/HelpModule';
-import { mockPatients, mockAppointments, mockNotes, mockObservations, mockTransactions, mockConsultationTypes } from './data/mockData';
 import { api } from './services/api';
 
 const App: React.FC = () => {
@@ -81,6 +79,7 @@ const App: React.FC = () => {
   const [consultationTypes, setConsultationTypes] = useState<ConsultationType[]>([]);
   const [notificationLogs, setNotificationLogs] = useState<NotificationLog[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [blockedDays, setBlockedDays] = useState<BlockedDay[]>([]);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [signatureImage, setSignatureImage] = useState<string | null>(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -90,7 +89,7 @@ const App: React.FC = () => {
     if (isAuthenticated) {
         const loadData = async () => {
             try {
-                const [p, a, n, o, t, c, nl, al] = await Promise.all([
+                const [p, a, n, o, t, c, nl, al, bd] = await Promise.all([
                     api.patients.list(),
                     api.appointments.list(),
                     api.notes.list(),
@@ -98,7 +97,8 @@ const App: React.FC = () => {
                     api.transactions.list(),
                     api.consultationTypes.list(),
                     api.notificationLogs.list(),
-                    api.auditLogs.list()
+                    api.auditLogs.list(),
+                    api.blockedDays.list()
                 ]);
                 
                 // Configurações e senha
@@ -114,6 +114,7 @@ const App: React.FC = () => {
                 setConsultationTypes(c);
                 setNotificationLogs(nl);
                 setAuditLogs(al);
+                setBlockedDays(bd);
                 
                 if (savedPwd) setPassword(savedPwd);
                 if (savedProfile) setProfileImage(savedProfile);
@@ -179,6 +180,22 @@ const App: React.FC = () => {
     // Async save
     api.auditLogs.save(newLog);
   }, []);
+
+  const handleBlockDay = async (date: string) => {
+      const newBlockedDay: BlockedDay = { id: `bd-${Date.now()}`, date };
+      setBlockedDays(prev => [...prev, newBlockedDay]);
+      await api.blockedDays.save(newBlockedDay);
+      logAction('Dia Bloqueado', `Data bloqueada na agenda: ${date}`);
+  };
+
+  const handleUnblockDay = async (date: string) => {
+      const day = blockedDays.find(d => d.date === date);
+      if (day) {
+          setBlockedDays(prev => prev.filter(d => d.id !== day.id));
+          await api.blockedDays.delete(day.id);
+          logAction('Dia Desbloqueado', `Data liberada na agenda: ${date}`);
+      }
+  };
 
   const navigateTo = useCallback((view: View) => {
     setActiveView(view);
@@ -405,6 +422,9 @@ const App: React.FC = () => {
                   setTransactions={setTransactions}
                   notificationLogs={notificationLogs}
                   setNotificationLogs={setNotificationLogs}
+                  blockedDays={blockedDays}
+                  onBlockDay={handleBlockDay}
+                  onUnblockDay={handleUnblockDay}
                   onLogAction={logAction}
                   onShowToast={addToast}
                   onModalStateChange={handleChildModalStateChange}
